@@ -91,7 +91,7 @@ app.get('/api/plants', requireAuth, async (req, res) => {
         // We MUST explicitly filter by user_id to respect tenant isolation in the backend logic.
         const { data, error } = await supabase
             .from('plants')
-            .select('*, photos(image_url), care_logs(*)')
+            .select('*, photos(image_url, created_at), care_logs(*)')
             .eq('user_id', req.user.id)
             .order('created_at', { ascending: false });
 

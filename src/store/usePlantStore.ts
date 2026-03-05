@@ -60,7 +60,9 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
         try {
             const dbPlants = await api.fetchPlants();
             const mappedPlants: Plant[] = dbPlants.map((dbp: any) => {
-                const waterLogs = dbp.care_logs?.filter((l: any) => l.action_type === 'watered') || [];
+                const waterLogs = (dbp.care_logs || [])
+                    .filter((l: any) => l.action_type === 'watered')
+                    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 const lastWatered = waterLogs.length > 0
                     ? waterLogs[0].created_at
                     : dbp.created_at;
@@ -73,13 +75,19 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
                     waterFrequencyDays: dbp.water_frequency_days,
                     lightRequirement: dbp.light_requirement,
                     lastWatered,
-                    photos: dbp.photos?.map((p: any) => p.image_url) || [],
-                    logs: dbp.care_logs?.map((l: any) => ({
-                        id: l.id,
-                        action: l.action_type,
-                        note: l.note,
-                        date: l.created_at
-                    })) || []
+                    // Sort newest-first so photos[0] is always the most recent (hero image)
+                    photos: (dbp.photos || [])
+                        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map((p: any) => p.image_url),
+                    // Sort newest-first so the history list and last-watered lookup are correct
+                    logs: (dbp.care_logs || [])
+                        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map((l: any) => ({
+                            id: l.id,
+                            action: l.action_type,
+                            note: l.note,
+                            date: l.created_at
+                        }))
                 };
             });
             set({ plants: mappedPlants });
