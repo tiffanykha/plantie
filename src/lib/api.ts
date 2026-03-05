@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -62,11 +63,20 @@ export const api = {
         const { data: { session } } = await supabase.auth.getSession();
 
         const formData = new FormData();
-        formData.append('photo', {
-            uri: photoUri,
-            name: 'photo.jpg',
-            type: 'image/jpeg',
-        } as any);
+
+        if (Platform.OS === 'web') {
+            // On web, uri is a blob: URL — fetch it to get the actual Blob
+            const response = await fetch(photoUri);
+            const blob = await response.blob();
+            formData.append('photo', blob, 'photo.jpg');
+        } else {
+            // On native, React Native FormData accepts { uri, name, type } directly
+            formData.append('photo', {
+                uri: photoUri,
+                name: 'photo.jpg',
+                type: 'image/jpeg',
+            } as any);
+        }
 
         const res = await fetch(`${API_URL}/api/plants/${id}/photos`, {
             method: 'POST',
@@ -89,17 +99,17 @@ export const api = {
     },
 
     diagnosePlant: async (plantId: string, photoUri: string) => {
-        // We need to send FormData for file upload
         const { data: { session } } = await supabase.auth.getSession();
 
         const formData = new FormData();
 
-        // In React Native, we pass an object directly to FormData for files
-        formData.append('photo', {
-            uri: photoUri,
-            name: 'photo.jpg',
-            type: 'image/jpeg',
-        } as any);
+        if (Platform.OS === 'web') {
+            const response = await fetch(photoUri);
+            const blob = await response.blob();
+            formData.append('photo', blob, 'photo.jpg');
+        } else {
+            formData.append('photo', { uri: photoUri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+        }
 
         const res = await fetch(`${API_URL}/api/plants/${plantId}/diagnose`, {
             method: 'POST',
@@ -118,12 +128,13 @@ export const api = {
 
         const formData = new FormData();
 
-        // In React Native, we pass an object directly to FormData for files
-        formData.append('photo', {
-            uri: photoUri,
-            name: 'photo.jpg',
-            type: 'image/jpeg',
-        } as any);
+        if (Platform.OS === 'web') {
+            const response = await fetch(photoUri);
+            const blob = await response.blob();
+            formData.append('photo', blob, 'photo.jpg');
+        } else {
+            formData.append('photo', { uri: photoUri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+        }
 
         const res = await fetch(`${API_URL}/api/plants/identify`, {
             method: 'POST',

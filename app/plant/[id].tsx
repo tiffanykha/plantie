@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Camera, ChevronLeft, CloudRain, Droplets, Lightbulb, Pencil, Sparkles, Sun, Trash2, Waves } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlantHistoryItem } from '../../src/components/PlantHistoryItem';
 import { DeletePlantModal } from '../../src/components/modals/DeletePlantModal';
@@ -53,7 +53,30 @@ export default function PlantDetailScreen() {
         logCareAction(plant.id, 'fertilized', 'Applied liquid fertilizer');
     };
 
+    const pickFromLibrary = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert('Permission Required', 'Photo library access is needed to pick a photo.');
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+        if (!result.canceled && result.assets?.[0]) {
+            addPhoto(plant.id, result.assets[0].uri);
+        }
+    };
+
     const handleUpdatePhoto = async () => {
+        // On web, camera access isn't supported — go straight to file picker
+        if (Platform.OS === 'web') {
+            pickFromLibrary();
+            return;
+        }
+
         Alert.alert(
             'Add Photo',
             'Choose a source',
@@ -78,22 +101,7 @@ export default function PlantDetailScreen() {
                 },
                 {
                     text: 'Choose from Library',
-                    onPress: async () => {
-                        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                        if (!permission.granted) {
-                            Alert.alert('Permission Required', 'Photo library access is needed to pick a photo.');
-                            return;
-                        }
-                        const result = await ImagePicker.launchImageLibraryAsync({
-                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                            allowsEditing: true,
-                            aspect: [4, 3],
-                            quality: 0.8,
-                        });
-                        if (!result.canceled && result.assets?.[0]) {
-                            addPhoto(plant.id, result.assets[0].uri);
-                        }
-                    },
+                    onPress: pickFromLibrary,
                 },
                 { text: 'Cancel', style: 'cancel' },
             ]
