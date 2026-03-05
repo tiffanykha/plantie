@@ -35,9 +35,14 @@ const requireAuth = async (req, res, next) => {
     next();
 };
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Plantie API is running' });
+    res.json({
+        status: 'ok',
+        message: 'Plantie API is running',
+        supabaseLoaded: !!supabase,
+        urlLoaded: !!process.env.SUPABASE_URL,
+        keyLoaded: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
 });
 
 /**
