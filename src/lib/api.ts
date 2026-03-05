@@ -58,11 +58,22 @@ export const api = {
         return res.json();
     },
 
-    addPlantPhoto: async (id: string, photo_url: string) => {
+    addPlantPhoto: async (id: string, photoUri: string) => {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const formData = new FormData();
+        formData.append('photo', {
+            uri: photoUri,
+            name: 'photo.jpg',
+            type: 'image/jpeg',
+        } as any);
+
         const res = await fetch(`${API_URL}/api/plants/${id}/photos`, {
             method: 'POST',
-            headers: await getAuthHeaders(),
-            body: JSON.stringify({ photo_url })
+            headers: {
+                ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+            },
+            body: formData
         });
         if (!res.ok) throw new Error('Failed to add photo');
         return res.json();

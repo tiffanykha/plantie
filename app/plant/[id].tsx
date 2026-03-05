@@ -54,22 +54,50 @@ export default function PlantDetailScreen() {
     };
 
     const handleUpdatePhoto = async () => {
-        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-        if (permissionResult.granted === false) {
-            alert("You've refused to allow this app to access your camera!");
-            return;
-        }
-
-        const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-        });
-
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-            addPhoto(plant.id, result.assets[0].uri);
-        }
+        Alert.alert(
+            'Add Photo',
+            'Choose a source',
+            [
+                {
+                    text: 'Take Photo',
+                    onPress: async () => {
+                        const permission = await ImagePicker.requestCameraPermissionsAsync();
+                        if (!permission.granted) {
+                            Alert.alert('Permission Required', 'Camera access is needed to take a photo.');
+                            return;
+                        }
+                        const result = await ImagePicker.launchCameraAsync({
+                            allowsEditing: true,
+                            aspect: [4, 3],
+                            quality: 0.8,
+                        });
+                        if (!result.canceled && result.assets?.[0]) {
+                            addPhoto(plant.id, result.assets[0].uri);
+                        }
+                    },
+                },
+                {
+                    text: 'Choose from Library',
+                    onPress: async () => {
+                        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                        if (!permission.granted) {
+                            Alert.alert('Permission Required', 'Photo library access is needed to pick a photo.');
+                            return;
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                            allowsEditing: true,
+                            aspect: [4, 3],
+                            quality: 0.8,
+                        });
+                        if (!result.canceled && result.assets?.[0]) {
+                            addPhoto(plant.id, result.assets[0].uri);
+                        }
+                    },
+                },
+                { text: 'Cancel', style: 'cancel' },
+            ]
+        );
     };
 
     const confirmDelete = () => {

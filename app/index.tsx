@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Plus, Settings } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { Dimensions, FlatList, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlantCard } from '../src/components/PlantCard';
@@ -14,6 +14,7 @@ import { theme } from '../src/theme';
 export default function HomeScreen() {
     const user = useAuthStore((state) => state.user);
     const plants = usePlantStore((state) => state.plants);
+    const isLoading = usePlantStore((state) => state.isLoading);
     const thirstyCount = plants.filter((p) => p.status === 'thirsty').length;
     const { width, height } = Dimensions.get('window');
 
@@ -26,32 +27,42 @@ export default function HomeScreen() {
             -1,
             true
         );
-    }, []);
+    }, [translateY]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: translateY.value }]
     }));
 
-    const renderEmptyState = () => (
-        <View style={styles.emptyStateContainer}>
-            <Animated.View style={animatedStyle}>
-                <Image
-                    source={require('../assets/images/empty_pot.png')}
-                    style={styles.emptyIllustration}
-                    contentFit="contain"
-                />
-            </Animated.View>
-            <Text style={styles.emptyTitle}>Your indoor jungle awaits!</Text>
-            <Text style={styles.emptySubtitle}>Tap the button below to add your first plant to Plantie.</Text>
+    const renderEmptyState = () => {
+        if (isLoading) {
+            return (
+                <View style={styles.emptyStateContainer}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={[styles.emptySubtitle, { marginTop: theme.spacing.md }]}>Loading your plants…</Text>
+                </View>
+            );
+        }
+        return (
+            <View style={styles.emptyStateContainer}>
+                <Animated.View style={animatedStyle}>
+                    <Image
+                        source={require('../assets/images/empty_pot.png')}
+                        style={styles.emptyIllustration}
+                        contentFit="contain"
+                    />
+                </Animated.View>
+                <Text style={styles.emptyTitle}>Your indoor jungle awaits!</Text>
+                <Text style={styles.emptySubtitle}>Tap the button below to add your first plant to Plantie.</Text>
 
-            <Link href="/add-plant" asChild>
-                <Pressable style={({ pressed }) => [styles.emptyStateButton, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
-                    <Plus color="#FFF" size={20} style={{ marginRight: 8 }} />
-                    <Text style={styles.emptyStateButtonText}>Add Your First Plant</Text>
-                </Pressable>
-            </Link>
-        </View>
-    );
+                <Link href="/add-plant" asChild>
+                    <Pressable style={({ pressed }) => [styles.emptyStateButton, { transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
+                        <Plus color="#FFF" size={20} style={{ marginRight: 8 }} />
+                        <Text style={styles.emptyStateButtonText}>Add Your First Plant</Text>
+                    </Pressable>
+                </Link>
+            </View>
+        );
+    };
 
     const sortedPlants = [...plants].sort((a, b) => a.species.localeCompare(b.species));
 

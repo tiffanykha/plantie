@@ -7,7 +7,7 @@ interface AuthState {
     user: User | null;
     isInitialized: boolean;
     setSession: (session: Session | null) => void;
-    initialize: () => Promise<void>;
+    initialize: () => Promise<Session | null>;
     signOut: () => Promise<void>;
     updateProfile: (name: string) => Promise<void>;
 }
@@ -27,9 +27,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             supabase.auth.onAuthStateChange((_event, session) => {
                 set({ session, user: session?.user || null, isInitialized: true });
             });
+
+            return session;
         } catch (e) {
             console.error('Error initializing auth:', e);
             set({ isInitialized: true });
+            return null;
         }
     },
 

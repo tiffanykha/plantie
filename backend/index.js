@@ -10,6 +10,19 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Helper: upload a file buffer to Supabase Storage and return its public URL
+async function uploadPhotoToStorage(buffer, mimeType = 'image/jpeg') {
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+    const { error } = await supabase.storage
+        .from('plant-photos')
+        .upload(fileName, buffer, { contentType: mimeType, upsert: false });
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage
+        .from('plant-photos')
+        .getPublicUrl(fileName);
+    return publicUrl;
+}
+
 // Configure Multer for memory storage (we'll pass buffers to Gemini and upload to Supabase Storage)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -235,10 +248,21 @@ app.patch('/api/plants/:id', requireAuth, async (req, res) => {
 /**
  * Add a photo to a plant
  */
-app.post('/api/plants/:id/photos', requireAuth, async (req, res) => {
+app.post('/api/plants/:id/photos', requireAuth, upload.single('photo'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { photo_url } = req.body;
+
+        // Accept either a multipart file upload or a JSON photo_url fallback
+        let photo_url;
+        if (req.file) {
+            photo_url = await uploadPhotoToStorage(req.file.buffer, req.file.mimetype);
+        } else {
+            photo_url = req.body.photo_url;
+        }
+
+        if (!photo_url) {
+            return res.status(400).json({ error: 'No photo provided' });
+        }
 
         // Verify ownership
         const { data: plant, error: verifyError } = await supabase

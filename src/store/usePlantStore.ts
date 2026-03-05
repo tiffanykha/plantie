@@ -1,5 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { api } from '../lib/api';
+
+const PLANTS_CACHE_KEY = 'plantie_plants_cache';
 
 export type PlantStatus = 'healthy' | 'thirsty' | 'critical' | 'overwatered';
 
@@ -43,6 +46,14 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
     isLoading: false,
 
     fetchPlants: async () => {
+        // Load cached plants immediately for instant display
+        try {
+            const cached = await AsyncStorage.getItem(PLANTS_CACHE_KEY);
+            if (cached) {
+                set({ plants: JSON.parse(cached) });
+            }
+        } catch {}
+
         set({ isLoading: true });
         try {
             const dbPlants = await api.fetchPlants();
@@ -70,6 +81,8 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
                 };
             });
             set({ plants: mappedPlants });
+            // Persist to cache for next open
+            AsyncStorage.setItem(PLANTS_CACHE_KEY, JSON.stringify(mappedPlants)).catch(() => {});
         } catch (error) {
             console.error('Failed to fetch plants:', error);
         } finally {
@@ -79,15 +92,23 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
 
     addPlant: async (plantData) => {
         try {
+            // Create the plant first (no photo_url — local URIs can't be saved to DB)
             const newPlant = await api.createPlant({
                 name: plantData.name,
                 species: plantData.species,
                 water_frequency_days: plantData.waterFrequencyDays,
                 light_requirement: plantData.lightRequirement,
                 status: plantData.status,
-                photo_url: plantData.photos?.[0] || null
             });
-            // Re-fetch to get complete mapped db format
+            // If a photo was taken, upload it to Supabase Storage via the backend
+            if (plantData.photos?.[0]) {
+                try {
+                    await api.addPlantPhoto(newPlant.id, plantData.photos[0]);
+                } catch (photoError) {
+                    console.error('Failed to upload initial plant photo', photoError);
+                }
+            }
+            // Re-fetch to get complete mapped db format with photo URLs
             get().fetchPlants();
         } catch (error) {
             console.error('Failed to add plant', error);
@@ -157,8 +178,7 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
     },
 
     addPhoto: async (id, photoUri) => {
-        // Mocking photo URL as just the URI locally for now (proper implementation would upload to Supabase Storage and get URL)
-        // Optimistic native update
+        // Optimistic update with local URI so the photo appears instantly in the UI
         const tempId = Math.random().toString(36).substring(7);
         set((state) => ({
             plants: state.plants.map((plant) => {
@@ -178,7 +198,9 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
 
         try {
             await api.addPlantPhoto(id, photoUri);
-            // Optionally fetch plants to get proper backend IDs
+            // Re-fetch to replace the local URI with the Supabase Storage https:// URL
+            // (required for web rendering and cross-device persistence)
+            get().fetchPlants();
         } catch (error) {
             console.error('Failed to add photo in backend', error);
             get().fetchPlants();

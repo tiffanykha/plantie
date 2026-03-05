@@ -21,8 +21,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    initialize().then((session) => {
+      // Start fetching plants immediately once we know the session,
+      // without waiting for a second render cycle.
+      if (session) fetchPlants();
+    });
+  }, [initialize, fetchPlants]);
 
   useEffect(() => {
     if (!fontsLoaded || !isInitialized) return;
@@ -31,12 +35,8 @@ export default function RootLayout() {
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (session) {
-      // Fetch the user's plants as soon as they are signed in
-      fetchPlants();
-      if (inAuthGroup) {
-        router.replace('/');
-      }
+    } else if (session && inAuthGroup) {
+      router.replace('/');
     }
   }, [session, isInitialized, fontsLoaded, segments, router]);
 
