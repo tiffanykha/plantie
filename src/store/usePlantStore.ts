@@ -28,7 +28,7 @@ export interface Plant {
 interface PlantStore {
     plants: Plant[];
     isLoading: boolean;
-    fetchPlants: () => Promise<void>;
+    fetchPlants: (skipCache?: boolean) => Promise<void>;
     addPlant: (plant: Omit<Plant, 'id' | 'logs' | 'lastWatered'>) => Promise<void>;
     waterPlant: (id: string) => Promise<void>;
     logCareAction: (id: string, action: PlantLog['action'], note?: string) => Promise<void>;
@@ -45,14 +45,16 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
     plants: [],
     isLoading: false,
 
-    fetchPlants: async () => {
-        // Load cached plants immediately for instant display
-        try {
-            const cached = await AsyncStorage.getItem(PLANTS_CACHE_KEY);
-            if (cached) {
-                set({ plants: JSON.parse(cached) });
-            }
-        } catch {}
+    fetchPlants: async (skipCache = false) => {
+        // Load cached plants immediately for instant display (skip when we just wrote fresh data)
+        if (!skipCache) {
+            try {
+                const cached = await AsyncStorage.getItem(PLANTS_CACHE_KEY);
+                if (cached) {
+                    set({ plants: JSON.parse(cached) });
+                }
+            } catch {}
+        }
 
         set({ isLoading: true });
         try {
@@ -198,12 +200,12 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
 
         try {
             await api.addPlantPhoto(id, photoUri);
-            // Re-fetch to replace the local URI with the Supabase Storage https:// URL
-            // (required for web rendering and cross-device persistence)
-            get().fetchPlants();
+            // Skip cache so the stale AsyncStorage snapshot doesn't overwrite the optimistic update
+            // before the fresh API data arrives (fixes the iOS "photo flash" bug)
+            get().fetchPlants(true);
         } catch (error) {
             console.error('Failed to add photo in backend', error);
-            get().fetchPlants();
+            get().fetchPlants(true);
         }
     },
 
